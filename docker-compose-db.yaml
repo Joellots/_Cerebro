@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:17
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      POSTGRES_DB: cerebro_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432" 
+

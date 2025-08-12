@@ -1,0 +1,8 @@
+db.sqlite3
+.coverage
+htmlcov/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/Terraform.gitignore
+terraform/.terraform
+terraform/.terraform.lock.hcl 

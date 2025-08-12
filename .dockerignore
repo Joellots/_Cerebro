@@ -1,0 +1,58 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Unit test and coverage
+*.cover
+.coverage
+coverage.*
+htmlcov/
+.tox/
+nosetests.xml
+test-reports/
+.pytest_cache/
+
+# Environment and dependency files
+.env
+*.env
+.env.*  # e.g., .env.dev, .env.prod
+
+# OS/system files
+.DS_Store
+Thumbs.db
+
+# Docker and CI
+.dockerignore
+docker-compose*.yaml
+Dockerfile
+Jenkinsfile
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+*.sqlite3
+
+# Byte-compiled files
+*.egg-info/
+.eggs/
+*.bak
+*.swp
+
+# IDE/editor configs
+.vscode/
+.idea/
+
+# Static/media files (optional — only ignore if generated at runtime)
+media/
+staticfiles/
+
+# Migrations (optional — ignore if generated during container runtime)
+**/migrations/*.pyc
+**/migrations/*.pyo
+**/migrations/__pycache__/
