@@ -238,8 +238,7 @@ pipeline {
       }
       steps {
         withCredentials([
-          usernamePassword(credentialsId: 'gitlab-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS'),
-          usernamePassword(credentialsId: 'gitops-repo', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')
+          usernamePassword(credentialsId: 'gitlab-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')
         ]) {
           withEnv(["VERSION=${params.VERSION}"]) {
             echo "Deploying version $VERSION of Cerebro Application"
