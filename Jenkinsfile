@@ -262,7 +262,7 @@ pipeline {
             git branch -M main
             git remote remove origin || true
             git remote add origin https://${GIT_USER}:${GIT_PASS}@$GITOPS_REPO
-            git push origin main
+            git push origin main || true
             '''
           }
         }
