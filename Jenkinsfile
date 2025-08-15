@@ -257,8 +257,8 @@ pipeline {
             
             cd ..
             git init
-            git add .
-            git commit -m "Deploy Cerebro $VERSION via CI pipeline"
+            git add . 
+            git commit -m "Deploy Cerebro $VERSION via CI pipeline" || true
             git branch -M main
             git remote remove origin || true
             git remote add origin https://${GIT_USER}:${GIT_PASS}@$GITOPS_REPO
