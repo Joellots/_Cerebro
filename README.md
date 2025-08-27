@@ -60,7 +60,7 @@ flowchart TD
     F --> H
     G --> H
     H --> I[Deploy App via GitOps Repo]
-    I --> J[ArgoCD Sync -> K8s Clusters (Dev/Prod)]
+    I --> J[ArgoCD Sync -> K8s Clusters Dev/Prod]
 ````
 
 ---
