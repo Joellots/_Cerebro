@@ -1,139 +1,74 @@
+# Cerebro
 
-# Cerebro – Auto-scalable GitOps-driven CI/CD Pipeline
+**A DevSecOps delivery pipeline for a Django web application: containerised builds, security scanning on ephemeral Kubernetes agents, and GitOps deployment through Argo CD.**
 
-This project delivers a **GitOps-based CI/CD pipeline** for the **Cerebro application**, leveraging **Jenkins, ArgoCD, and Kustomize**.  
-It integrates **SAST, DAST, SBOM, and IaC scans**, while supporting **auto-scaled Jenkins agents on Kubernetes** and **Prometheus/Grafana monitoring**.  
+![Django](https://img.shields.io/badge/Django-5.1-092E20?logo=django&logoColor=white)
+![Jenkins](https://img.shields.io/badge/CI-Jenkins-D24939?logo=jenkins&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Agents-Kubernetes-326CE5?logo=kubernetes&logoColor=white)
+![Argo CD](https://img.shields.io/badge/CD-Argo%20CD-EF7B4D?logo=argo&logoColor=white)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)
 
----
+The application is a Django + PostgreSQL discussion platform where every message is screened by Google's Perspective API before it's saved. The pipeline around it builds, tests and scans each release, publishes a versioned image, and deploys by committing the new tag to a GitOps repository that Argo CD reconciles into the cluster.
 
-## 🚀 Features
-
-- **Jenkins CI/CD Pipeline** with GitOps deployment:
-  - `Checkout` – Source code retrieval.  
-  - `Build` – Docker image build and service spin-up with Docker Compose.  
-  - `Unit Tests` – Automated pytest runs inside containers (optional).  
-  - `Security Scans`:
-    - **Secrets** → Gitleaks.  
-    - **SAST** → Semgrep (general), Bandit (Python).  
-    - **IaC Scan** → Checkov (Terraform, YAML, JSON).  
-  - `Push Image` – Docker push to Docker Hub.  
-  - `Deploy App` – GitOps deployment update via ArgoCD/Kustomize.
-- **Auto-scaling Jenkins Agents** on Kubernetes:
-  - Reduced infra cost by **35%**.
-  - Eliminated idle time and ensured continuous availability.
-- **Real-time Monitoring**:
-  - Prometheus + Grafana dashboards for agent performance and cluster state.
-  - Faster troubleshooting with **30% reduction in MTTR**.
-- **Security and Compliance**:
-  - Automated SBOM generation and vulnerability management.
-  - Continuous scans ensure **compliance-ready releases**.
-
----
-
-## 🛠️ Tools & Technologies
-
-- **CI/CD Orchestration**: Jenkins Pipeline (Groovy DSL)  
-- **GitOps**: ArgoCD + Kustomize  
-- **Containerization**: Docker, Docker Compose  
-- **SAST**: Semgrep, Bandit  
-- **Secrets Detection**: Gitleaks  
-- **IaC Security**: Checkov  
-- **Artifact Repository**: Docker Hub  
-- **Monitoring**: Prometheus, Grafana  
-- **Cloud-native Infra**: Kubernetes (dynamic Jenkins agents)  
-
----
-
-## 📂 Pipeline Overview
+## Architecture
 
 ```mermaid
-flowchart TD
-    A[Checkout Code] --> B[Build Docker Image]
-    B --> C[Unit Tests]
-    B --> D[Gitleaks Scan]
-    B --> E[Semgrep Scan]
-    B --> F[Bandit Scan]
-    B --> G[Checkov IaC Scan]
-    C --> H[Push Image to Docker Hub]
-    D --> H
-    E --> H
-    F --> H
-    G --> H
-    H --> I[Deploy App via GitOps Repo]
-    I --> J[ArgoCD Sync -> K8s Clusters Dev/Prod]
-````
+flowchart LR
+    dev([Developer]) -->|git push| src[(Cerebro repo)]
+    src --> jenkins[Jenkins]
 
----
+    subgraph k8s["Kubernetes"]
+        dind["DinD build agent<br/>build · test · push"]
+        scan["Ephemeral scanner pods<br/>Gitleaks · Semgrep · Bandit · Checkov"]
+    end
 
-## 🔧 Setup Instructions
+    jenkins --> dind
+    jenkins --> scan
+    dind -->|push| hub[(Docker Hub)]
+    jenkins -->|"approval → commit image tag"| gitops[(GitOps repo)]
+    gitops -->|sync| argo[Argo CD]
+    argo --> cluster[Cluster]
+```
 
-### 1. Clone the repository
+| Stage | What it does |
+|-------|--------------|
+| Build | Builds `joellots/cerebro:<VERSION>` and starts the app + PostgreSQL with Docker Compose |
+| Unit tests | 29 pytest tests with coverage, run inside the container against the live database |
+| Gitleaks | Secret detection |
+| Semgrep · Bandit | Multi-language and Python-specific SAST |
+| Checkov | Misconfiguration scan of Terraform, Kubernetes manifests and the Dockerfile |
+| Push | Publishes the versioned image to Docker Hub |
+| Deploy | Manual approval, then commits the new image tag to the GitOps repo for Argo CD to roll out |
+
+## Design decisions
+
+- **Disposable scanner pods.** Each scan runs in its own pod from the tool's upstream image, created for the stage and destroyed after. No tooling on the controller, no version conflicts, no idle capacity.
+- **Docker-in-Docker instead of socket mounting.** Builds use a sidecar `dind` daemon scoped to the agent pod, so a job never gets root on the node.
+- **Jenkins never touches the cluster.** It can only push to the GitOps repo; Argo CD owns the cluster. Every deploy is a reviewable commit, and rollback is `git revert`.
+- **Least privilege throughout.** Credentials are injected at runtime from the Jenkins store, and the application container runs as an unprivileged user.
+
+## Quick start
+
+Requires Docker with Compose on Linux.
 
 ```bash
-git clone https://github.com/Joellots/Cerebro.git
-cd Cerebro
+git clone https://github.com/Joellots/_Cerebro.git && cd _Cerebro
+export DB_USER=cerebro DB_PASSWORD=change-me DB_HOST=localhost REGISTRY=joellots/cerebro VERSION=dev
+
+docker compose -f docker-compose-db.yaml up -d
+docker compose -f docker-compose-app.yaml up -d --build   # → http://localhost:8000
 ```
 
-### 2. Configure Jenkins credentials
+To reproduce the full pipeline (Terraform host, Jenkins, Argo CD), see **[docs/SETUP.md](docs/SETUP.md)**.
 
-In Jenkins → **Manage Jenkins → Credentials**, add:
+## Roadmap
 
-* `DB_CREDENTIALS` → Database username/password
-* `joellots-dockerhub` → Docker Hub username/password
-* `SEMGREP_APP_TOKEN` → API token for Semgrep
-* `gitops-repo` → GitOps repo URL/credentials
-* `gitlab-credentials` → GitLab username/password (for pushing manifests)
-
-### 3. Configure GitOps repo
-
-Deployment manifests are stored in:
-
-```
-gitops-cerebro/base/deployment.yaml
-```
-
-The pipeline updates the image tag dynamically:
-
-```yaml
-image: joellots/cerebro:<VERSION>
-```
-
-### 4. Run the pipeline
-
-From Jenkins UI, run the pipeline with parameters:
-
-* `VERSION` → Choose version (`v1.1.0`, `v1.2.0`, `v1.3.0`)
-* `executeTests` → `true` to run unit tests
-
-### 5. Monitor deployment
-
-* Jenkins console output for pipeline progress
-* ArgoCD UI for GitOps sync status
-* Prometheus/Grafana for agent + cluster monitoring
+- Make security scans blocking on high-severity findings (currently advisory)
+- Run the four scanners in parallel
+- Add image scanning (Trivy) and SBOM generation (Syft)
+- Add DAST with OWASP ZAP against the stack started in the Build stage
+- Move remaining configuration secrets into environment variables
 
 ---
 
-## 📊 Security Reports Collected
-
-* `gitleaks.json` → Secrets detection
-* `semgrep.json` → Static analysis (SAST)
-* `bandit.json` → Python security findings
-* `checkov.test.xml` → IaC scan results
-
----
-
-## 🏆 Achievements
-
-* Designed and implemented a **GitOps-based pipeline** with ArgoCD + Kustomize.
-* Automated **SAST, IaC, SBOM, and DAST** for continuous security.
-* Achieved **35% infrastructure cost savings** via dynamic Jenkins agent scaling.
-* Reduced troubleshooting time by **30%** through Prometheus/Grafana observability.
-* Strengthened release security and compliance with **automated vulnerability scanning**.
-
----
-
-## 📜 License
-
-This project is for **educational and research purposes** only.
-Cerebro is licensed under the [MIT License](LICENSE).
-
+**Joel Chidike Okore** · MSc Security and Network Engineering, Innopolis University
